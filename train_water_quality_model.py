@@ -48,8 +48,23 @@ model.fit(X_train, y_train, epochs=100, batch_size=16, validation_data=(X_test, 
 loss, acc = model.evaluate(X_test, y_test)
 print(f"\n✅ Model Accuracy: {acc*100:.2f}%")
 
-# 8️⃣ Convert to TensorFlow Lite format (.tflite)
+# 8️⃣ Convert to TensorFlow Lite format (.tflite) with Quantization
 converter = tf.lite.TFLiteConverter.from_keras_model(model)
+
+# Apply optimization for smaller model size
+converter.optimizations = [tf.lite.Optimize.DEFAULT]
+
+def representative_data_gen():
+    # Provide a few examples for the converter to calibrate quantization
+    for input_value in tf.data.Dataset.from_tensor_slices(X_train).batch(1).take(100):
+        yield [tf.cast(input_value, tf.float32)]
+        
+converter.representative_dataset = representative_data_gen
+
 tflite_model = converter.convert()
 open("water_quality_model.tflite", "wb").write(tflite_model)
-print("\n💾 Model saved as 'water_quality_model.tflite'")
+print("\n💾 Model saved as 'water_quality_model.tflite' (Quantized)")
+
+# 9️⃣ Save Scaler Parameters
+np.savez("scaler.npz", mean=scaler.mean_, scale=scaler.scale_)
+print("💾 Scaler parameters saved as 'scaler.npz'")

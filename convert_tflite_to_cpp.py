@@ -6,6 +6,7 @@ import numpy as np
 
 # File names
 input_file = "water_quality_model.tflite"
+scaler_file = "scaler.npz"
 output_file = "model_data.cpp"
 
 # Read the binary model file
@@ -15,9 +16,27 @@ with open(input_file, "rb") as f:
 # Convert to C array format
 hex_array = ', '.join(f'0x{b:02x}' for b in data)
 
+# Read the scaler parameters
+try:
+    scaler_data = np.load(scaler_file)
+    scaler_mean_str = ', '.join(f"{x}f" for x in scaler_data['mean'])
+    scaler_scale_str = ', '.join(f"{x}f" for x in scaler_data['scale'])
+    
+    scaler_code = f"""
+// Scaler parameters for preprocessing raw sensor data
+// Formula: scaled_value = (raw_value - mean) / scale
+const float g_scaler_mean[] = {{{scaler_mean_str}}};
+const float g_scaler_scale[] = {{{scaler_scale_str}}};
+"""
+except FileNotFoundError:
+    scaler_code = "// Scaler parameters not found."
+
 # Generate .cpp content
 cpp_code = f"""
 #include <cstdint>
+{scaler_code}
+
+// TinyML Model
 const unsigned char g_water_quality_model[] = {{
 {hex_array}
 }};
